@@ -1,17 +1,21 @@
 import when from 'when'
 import RAF from '../raf'
+import Emitter from 'event-emitter'
+
+var _emitter = {}
+Emitter(_emitter)
 
 navigator.getUserMedia =    navigator.getUserMedia ||
                             navigator.webkitGetUserMedia ||
                             navigator.mozGetUserMedia;
 
-const LIMIT = 100
+const LIMIT = 200
 
 class Motion {
     constructor(){
 
-        this.width        = 128
-        this.height       = 128
+        this.width        = 150
+        this.height       = 150
         this.canvas       = document.createElement('canvas')
         this.video        = document.createElement('video')
         this.active       = false
@@ -25,6 +29,8 @@ class Motion {
         this.prevPixels   = new Uint8ClampedArray(this.width * this.height)
         this.currentPixel = new Uint8ClampedArray(this.width * this.height)
         this.velocityMap  = []
+
+        this.on = _emitter.on.bind(_emitter)
 
         this.init()
 
@@ -61,6 +67,7 @@ class Motion {
         let pixels = imgData.data;
         for (let i = 0, n = pixels.length; i < n; i += 4) {
             let grayscale = pixels[i] * .3 + pixels[i + 1] * .59 + pixels[i + 2] * .11
+            grayscale = Math.pow(grayscale, 1.5)
             pixels[i + 0] = grayscale        // red
             pixels[i + 1] = grayscale        // green
             pixels[i + 2] = grayscale        // blue
@@ -111,6 +118,7 @@ class Motion {
     }
 
     update(){
+
         if (!this.active) { return }
         
         if (this.ellapsed < this.targetFps) {
@@ -125,7 +133,11 @@ class Motion {
         this.toGreyScale()      // to B&W
         this.processPixels()    // proccess diff 
 
-        this.prevPixels = this.currentPixel.slice(0) // store pixels
+        let tmp = this.prevPixels
+        this.prevPixels = this.currentPixel 
+        this.currentPixel = tmp  // store pixels
+
+        _emitter.emit('update', null)
 
     }
 

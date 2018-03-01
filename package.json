@@ -6,6 +6,7 @@
     "build": "cp ./src/*.html ./build/ & cp -R ./src/assets ./build/ & webpack -p"
   },
   "dependencies": {
+    "event-emitter": "^0.3.5",
     "gl-matrix": "^2.3.2",
     "when": "^3.7.8"
   },

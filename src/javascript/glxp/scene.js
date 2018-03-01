@@ -21,27 +21,28 @@ let vec3 = glmat.vec3
 class Scene {
 
     constructor(){
-        this.width = window.innerWidth
-        this.height = window.innerHeight
-        this.active = false
-        this.time = 0
+        this.width    = window.innerWidth
+        this.height   = window.innerHeight
+        this.active   = false
+        this.time     = 0
+        this.ratio    = this.width / this.height
         
-        this.canvas = document.createElement('canvas')
+        this.canvas   = document.createElement('canvas')
         
         this.catchContext()
         TextureLoader.init(this)
         this.loadTexture()
 
-        this.camera = new Camera(this, 45)
-        this.orbit = new OrbitControl(this)
-        this.plane = new Plane(this)
-        this.points = new Points(this)
+        this.camera   = new Camera(this, 45)
+        this.orbit    = new OrbitControl(this)
+        // this.plane = new Plane(this)
+        this.points   = new Points(this)
 
         this.voxelFBO = new FBO(this, {
-            width: 1000,
-            heigth: 100,
+            width:      1000,
+            heigth:     100,
         })
-        this.voxel = new VoxelField(this)
+        // this.voxel = new VoxelField(this)
 
     }
 
@@ -60,9 +61,9 @@ class Scene {
 
     onLoaded(){
         this.active = true
-        // setTimeout(() => {
-        //     this.points.create()
-        // }, 2000);
+        setTimeout(() => {
+            // this.points.create()
+        }, 2000);
     }
 
     loadTexture(){        

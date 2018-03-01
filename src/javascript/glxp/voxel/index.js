@@ -86,11 +86,11 @@ class Plane {
 
         gl.bindVertexArray(this.vao)
 
-        gl.enableVertexAttribArray(0);
+        gl.enableVertexAttribArray(this.program.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer)
         gl.vertexAttribPointer(this.program.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0)
         
-        gl.enableVertexAttribArray(1);
+        gl.enableVertexAttribArray(this.program.vertexUvAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.uvsBuffer)
         gl.vertexAttribPointer(this.program.vertexUvAttribute, 2, gl.FLOAT, false, 0, 0)
 

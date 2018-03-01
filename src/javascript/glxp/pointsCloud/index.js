@@ -1,5 +1,6 @@
 import Layer from './layer'
 import glmat from 'gl-matrix'
+import MotionField from '../../motionfield/motionfield'
 
 let mat4 = glmat.mat4
 let quat = glmat.quat
@@ -15,7 +16,7 @@ class Factory {
         this.layers     = []
 
         this.position   = vec3.fromValues(0, 0, 0)
-        this.scale      = vec3.fromValues(.05, .05, .05)
+        this.scale      = vec3.fromValues(.05 * this.scene.ratio, .05, .05)
         this.rotation   = vec3.fromValues(0, -Math.PI / 2, Math.PI)
         this.quaternion = quat.create()
         this.matrix     = mat4.create()
@@ -23,6 +24,10 @@ class Factory {
         this.initProgram()
 
         this.create = this.create.bind(this)
+
+        MotionField.on('update', ()=>{
+            this.create()
+        })
 
     }
 
@@ -62,11 +67,12 @@ class Factory {
         let shaderProgram = gl.createProgram();
         gl.attachShader(shaderProgram, vertSahder)
         gl.attachShader(shaderProgram, fragSahder)
-        gl.transformFeedbackVaryings(shaderProgram, ["gl_Position"], gl.SEPARATE_ATTRIBS)
+        gl.transformFeedbackVaryings(shaderProgram, ["vPositiions"], gl.SEPARATE_ATTRIBS)
         gl.linkProgram(shaderProgram)
 
         if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            console.error("Could not initialise shaders");
+            var info = gl.getProgramInfoLog(shaderProgram);
+            console.error("Could not initialise shaders", info);
         }
 
         gl.useProgram(shaderProgram)
@@ -74,6 +80,7 @@ class Factory {
         gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute)
 
         shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVP")
+        shaderProgram.timeUniform = gl.getUniformLocation(shaderProgram, "uTime")
 
         this.vertShader = vertSahder
         this.fragSahder = fragSahder
@@ -105,15 +112,17 @@ class Factory {
 
     render(){
 
-        this.delete()
-        this.create()
+        // this.delete()
+        // this.create()
 
         let gl = this.gl
 
         gl.useProgram(this.program)
         
         this.updatePositionMatrix()
-        this.setMatrixUniforms()
+        this.setMatrixUniforms()        
+
+        this.gl.uniform1f(this.program.timeUniform, false, this.scene.time)        
 
         let now = performance.now()
 
@@ -121,11 +130,12 @@ class Factory {
 
             const layer = this.layers[i]            
             if (layer.death < now) {
-                // kill
+                layer.kill()
+                continue
             }
 
-            gl.bindVertexArray(layer.vao)
-            gl.drawArrays(gl.POINTS, 0, layer.length)
+            layer.render(this.program)
+            // gl.bindVertexArray(layer.vao)
         }
 
     }
