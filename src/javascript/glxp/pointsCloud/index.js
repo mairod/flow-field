@@ -16,10 +16,21 @@ class Factory {
         this.layers     = []
 
         this.position   = vec3.fromValues(0, 0, 0)
-        this.scale      = vec3.fromValues(.05 * this.scene.ratio, .05, .05)
+        this.scale      = vec3.fromValues(.05 * -1.33, .05, .05)
         this.rotation   = vec3.fromValues(0, -Math.PI / 2, Math.PI)
         this.quaternion = quat.create()
         this.matrix     = mat4.create()
+
+        this.debugPrint = document.querySelector('.debugPrint')
+
+        this.params = {
+            exposure: 1.2,
+            particleSize: 1.25,
+            discRadius: 0.35,
+            discFade: 0.1,
+            hueShift: 2.25,
+            colorPass: [1, 0., 0.]
+        }
 
         this.initProgram()
 
@@ -28,6 +39,14 @@ class Factory {
         MotionField.on('update', ()=>{
             this.create()
         })
+
+        this.gui = this.scene.gui.addFolder('Particles')
+        this.gui.add(this.params, 'exposure', -1, 2, .001)
+        this.gui.add(this.params, 'particleSize', 0, 2, .01)
+        this.gui.add(this.params, 'discRadius', 0, 1, .01)
+        this.gui.add(this.params, 'discFade', 0, 1, .01)
+        this.gui.add(this.params, 'hueShift', 0, Math.PI * 2, .01)
+        this.gui.open()
 
     }
 
@@ -42,7 +61,7 @@ class Factory {
     initProgram() {
 
         let vert = require('../../../shaders/particle.vert')
-        let frag = require('../../../shaders/particle.frag')        
+        let frag = require('../../../shaders/particle.frag')
 
         let gl = this.gl
 
@@ -68,7 +87,7 @@ class Factory {
         gl.attachShader(shaderProgram, vertSahder)
         gl.attachShader(shaderProgram, fragSahder)
         gl.transformFeedbackVaryings(shaderProgram, ["vPositiions"], gl.SEPARATE_ATTRIBS)
-        gl.linkProgram(shaderProgram)
+        gl.linkProgram(shaderProgram)   
 
         if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
             var info = gl.getProgramInfoLog(shaderProgram);
@@ -76,11 +95,23 @@ class Factory {
         }
 
         gl.useProgram(shaderProgram)
+
         shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aPos")
         gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute)
+        shaderProgram.directionAttribute      = gl.getAttribLocation(shaderProgram, "aDirs")
+        gl.enableVertexAttribArray(shaderProgram.directionAttribute)
+        shaderProgram.colorsAttribute         = gl.getAttribLocation(shaderProgram, "aColors")
+        gl.enableVertexAttribArray(shaderProgram.colorsAttribute)
 
-        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVP")
-        shaderProgram.timeUniform = gl.getUniformLocation(shaderProgram, "uTime")
+        shaderProgram.pMatrixUniform     = gl.getUniformLocation(shaderProgram, "uMVP")
+        shaderProgram.uTimeUniform       = gl.getUniformLocation(shaderProgram, "uTime")
+        shaderProgram.uDprUniform        = gl.getUniformLocation(shaderProgram, "uDpr")
+        shaderProgram.uExposureUniform   = gl.getUniformLocation(shaderProgram, "uExposure")
+        shaderProgram.uSizeUniform       = gl.getUniformLocation(shaderProgram, "uSize")
+        shaderProgram.uDiscradiusUniform = gl.getUniformLocation(shaderProgram, "uDiscradius")
+        shaderProgram.uBorderUniform     = gl.getUniformLocation(shaderProgram, "uBorder")
+        shaderProgram.uHueShiftUniform   = gl.getUniformLocation(shaderProgram, "uHueShift")
+        shaderProgram.uPostPassUniform   = gl.getUniformLocation(shaderProgram, "uPostPass")
 
         this.vertShader = vertSahder
         this.fragSahder = fragSahder
@@ -110,6 +141,37 @@ class Factory {
         }
     }
 
+    bind(){
+        let gl = this.gl
+        gl.uniform1f(this.program.uDprUniform,          this.scene.dpr)
+        gl.uniform1f(this.program.uExposureUniform,     this.params.exposure)
+        gl.uniform1f(this.program.uSizeUniform,         this.params.particleSize)
+        gl.uniform1f(this.program.uBorderUniform,       this.params.discFade)
+        gl.uniform1f(this.program.uDiscradiusUniform,   this.params.discRadius)
+        gl.uniform1f(this.program.uHueShiftUniform,     this.params.hueShift)
+    }
+
+    applyState() {
+        let gl = this.gl
+        gl.disable(gl.DEPTH_TEST)
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND)
+    }
+
+    postRender(){
+        
+        let gl = this.gl
+        gl.useProgram(this.program)
+        // this.setMatrixUniforms() 
+        // this.gl.uniformMatrix4fv(this.program.pMatrixUniform, false, M4)               
+        this.bind()
+        gl.uniform1f(this.program.uPostPassUniform, 1)
+        if (this.layers.length > 0) {
+            this.layers[this.layers.length - 1].bind(this.program)
+            gl.drawArrays(gl.POINTS, 0, this.layers[this.layers.length - 1].length)
+        }
+    }
+
     render(){
 
         // this.delete()
@@ -121,8 +183,10 @@ class Factory {
         
         this.updatePositionMatrix()
         this.setMatrixUniforms()        
+        this.applyState()
 
-        this.gl.uniform1f(this.program.timeUniform, false, this.scene.time)        
+        this.bind()
+        gl.uniform1f(this.program.uPostPassUniform, 0)
 
         let now = performance.now()
 

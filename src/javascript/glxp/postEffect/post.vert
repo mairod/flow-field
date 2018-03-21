@@ -1,13 +1,13 @@
+#version 300 es
+
 precision mediump float;
 
-attribute vec3 aPos;
-attribute vec3 aUvs;
+in vec3 aPos;
+in vec2 aUvs;
 
-varying vec3 vUv;
+out vec2 vUv;
 
 void main(void) {
-
     vUv = aUvs;
-
     gl_Position = vec4(aPos, 1.0);
 }

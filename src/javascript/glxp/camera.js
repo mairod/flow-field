@@ -43,7 +43,7 @@ class Camera {
     }
 
     updateProjection(ratio) {
-        mat4.perspective(this.pMatrix, this.fov * Math.PI / 180, ratio, 0.1, 100.0)
+        mat4.perspective(this.pMatrix, this.fov * Math.PI / 180, ratio, 0.1, 1000.0)
     }
 
     update(ratio) {

@@ -6,8 +6,8 @@ class FBO {
         this.gl = scene.gl
         this.opts = opts || {}
 
-        this.width = this.opts.width || 1024
-        this.heigth = this.opts.heigth || 1024
+        this.width = this.opts.width || this.scene.width * this.scene.dpr
+        this.heigth = this.opts.heigth || this.scene.height * this.scene.dpr        
 
         this.createTexture()
         this.createFB()
@@ -61,11 +61,15 @@ class FBO {
 
     }
 
-    prepare(){
+    prepare() {
         let gl = this.gl
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.fb)
-        gl.viewport(0, 0, this.width, this.heigth)
-        this.scene.camera.updateProjection(this.width / this.height)
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+        gl.viewport(0, 0, this.scene.width * this.scene.dpr, this.scene.height * this.scene.dpr)
+        // gl.colorMask(true, true, true, true)
+        // this.scene.camera.updateProjection(1)
+        // this.scene.camera.updateProjection(this.scene.ratio)
     }
 
     clean() {

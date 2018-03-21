@@ -8,7 +8,7 @@ class OrbitControl {
 
         this.mouse = { x: 0, y:0 }
         this.dragRotation = { x: 0, y:0 }
-        this.zoom = 30
+        this.zoom = 50
         this.drag = false
 
         this.initEvents()
@@ -46,7 +46,7 @@ class OrbitControl {
 
         window.addEventListener('wheel', (e) => {
             this.zoom += e.deltaY / 10 
-            this.zoom = Math.min(Math.max(this.zoom, 10),50)
+            this.zoom = Math.min(Math.max(this.zoom, 10),150)
         })
 
     }

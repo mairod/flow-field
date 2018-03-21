@@ -1,36 +1,44 @@
 import glmat from 'gl-matrix'
-import GEOM from "./geom"
-import TextureLoader from '../textureLoader'
+import FBO from './fbo'
+import GEOM from './geom'
 
 let mat4 = glmat.mat4
 let quat = glmat.quat
 let vec3 = glmat.vec3
 
-class Plane {
-    constructor(scene) {
+class PostEffect {
+    constructor(scene){
 
         this.scene = scene
-        this.gl = scene.gl
 
-        this.position = vec3.fromValues(0, 0, 0)
-        this.scale = vec3.fromValues(20, 2, 1)
-        this.rotation = vec3.fromValues(0, Math.PI / 2, 0)
-        this.quaternion = quat.create()
-        this.matrix = mat4.create()
+        this.gl = scene.gl
+        this.fbo = new FBO(this.scene)
+
+        this.params = {
+            active: false,
+            blurX: 10,
+            blurY: 0,
+            brigth: .5,
+        }
 
         this.initProgram()
         this.initBuffer()
         this.initVao()
 
-        this.voxelDim = 100
+        this.gui = this.scene.gui.addFolder('Post process')
+        this.gui.add(this.params, 'active')
+        this.gui.add(this.params, 'blurX', 0, 15, .001)
+        this.gui.add(this.params, 'blurY', 0, 15, .001)
+        this.gui.add(this.params, 'brigth', 0, 1, .001)
+        this.gui.open()
+
 
     }
 
-
     initProgram() {
 
-        let vert = require('../../../shaders/plane.vert')
-        let frag = require('../../../shaders/plane.frag')
+        let vert = require('./post.vert')
+        let frag = require('../../../shaders/post.frag')
 
         let gl = this.gl
 
@@ -67,12 +75,13 @@ class Plane {
         shaderProgram.vertexUvAttribute = gl.getAttribLocation(shaderProgram, "aUvs");
         gl.enableVertexAttribArray(shaderProgram.vertexUvAttribute)
 
-        shaderProgram.uTimeUniform = gl.getUniformLocation(shaderProgram, "uTime")
         shaderProgram.uTextureUniform = gl.getUniformLocation(shaderProgram, "uTexture")
-
-        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
-        shaderProgram.mMatrixUniform = gl.getUniformLocation(shaderProgram, "uMMatrix");
-        shaderProgram.vMatrixUniform = gl.getUniformLocation(shaderProgram, "uVMatrix");
+        shaderProgram.uRezUniform = gl.getUniformLocation(shaderProgram, "uRez")
+        shaderProgram.uBlurXUniform = gl.getUniformLocation(shaderProgram, "uBlurX")
+        shaderProgram.uBlurYUniform = gl.getUniformLocation(shaderProgram, "uBlurY")
+        shaderProgram.uBrigthUniform = gl.getUniformLocation(shaderProgram, "uBrigth")
+        // shaderProgram.uTimeUniform = gl.getUniformLocation(shaderProgram, "uTime")
+        // shaderProgram.uTextureUniform = gl.getUniformLocation(shaderProgram, "uTexture")
 
         this.vertShader = vertShader
         this.fragSahder = fragSahder
@@ -80,23 +89,6 @@ class Plane {
 
     }
 
-    setMatrixUniforms() {
-        this.gl.uniformMatrix4fv(this.program.pMatrixUniform, false, this.scene.camera.getProjectionMatrix());
-        this.gl.uniformMatrix4fv(this.program.vMatrixUniform, false, this.scene.camera.getViewMatrix());        
-        this.gl.uniformMatrix4fv(this.program.mMatrixUniform, false, this.matrix);
-    }
-
-    updatePositionMatrix() {
-        let gl = this.gl
-        mat4.identity(this.matrix)
-        this.quaternion = quat.create()
-        quat.rotateX(this.quaternion, this.quaternion, this.rotation[0])
-        quat.rotateY(this.quaternion, this.quaternion, this.rotation[1])
-        quat.rotateZ(this.quaternion, this.quaternion, this.rotation[2])
-        mat4.fromRotationTranslationScale(this.matrix, this.quaternion, this.position, this.scale)
-    }
-
-    // Webgl 2 only
     initVao() {
 
         let gl = this.gl
@@ -144,33 +136,40 @@ class Plane {
 
     applyState() {
         let gl = this.gl
-        gl.enable(gl.DEPTH_TEST)
+        gl.disable(gl.DEPTH_TEST)
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND)
     }
 
-    render() {
+    prepare() {
+        this.fbo.prepare()
+    }
+
+    render(){
 
         let gl = this.gl
-        let time = this.scene.time
 
+        this.fbo.clean()
         gl.useProgram(this.program)
-
         gl.bindVertexArray(this.vao)
-
-        this.updatePositionMatrix()
-        this.setMatrixUniforms()
         this.applyState()
 
-        gl.uniform1f(this.program.uTimeUniform, time)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, this.fbo.getTexture())        
+        gl.uniform2fv(this.program.uRezUniform, [this.scene.width * this.scene.dpr, this.scene.height * this.scene.dpr ])  
+        gl.uniform1f(this.program.uBlurXUniform, this.params.blurX)  
+        gl.uniform1f(this.program.uBlurYUniform, this.params.blurY)  
+        gl.uniform1f(this.program.uBrigthUniform, this.params.brigth)  
+        // gl.uniform1f(this.program.uRezUniform, this.scene.ratio)
 
-        // gl.activeTexture(gl.TEXTURE0)        
-        // gl.bindTexture(gl.TEXTURE_2D, this.scene.voxelFBO.getTexture())
-        // gl.uniform1i(this.program.uTextureUniform, 0)
-
-        gl.drawElements(gl.TRIANGLES, GEOM.indices.length, gl.UNSIGNED_SHORT, 0)
-
+        if (this.params.active) {
+            gl.drawElements(gl.TRIANGLES, GEOM.indices.length, gl.UNSIGNED_SHORT, 0)
+        }
         gl.bindVertexArray(null)
-
+         
     }
+
+
 }
 
-export default Plane
+export default PostEffect

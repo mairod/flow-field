@@ -12,6 +12,12 @@ class Plane {
         this.scene = scene
         this.gl = scene.gl
 
+        this.position = vec3.fromValues(0, -15, 0)
+        this.scale = vec3.fromValues(100, 0, 100)
+        this.rotation = vec3.fromValues(0, 0, 0)
+        this.quaternion = quat.create()
+        this.matrix = mat4.create()
+
         this.initProgram()
         this.initBuffer()
         this.initVao()
@@ -23,8 +29,8 @@ class Plane {
 
     initProgram() {
 
-        let vert = require('../../../shaders/fullplane.vert')
-        let frag = require('../../../shaders/simulation.frag')
+        let vert = require('../../../shaders/ground.vert')
+        let frag = require('../../../shaders/ground.frag')
 
         let gl = this.gl
 
@@ -52,7 +58,7 @@ class Plane {
         gl.linkProgram(shaderProgram)
 
         if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            console.error("Could not initialise shaders");
+            console.error("Could not initialise shaders", gl.getProgramInfoLog(shaderProgram));
         }
 
         gl.useProgram(shaderProgram)
@@ -61,9 +67,12 @@ class Plane {
         shaderProgram.vertexUvAttribute = gl.getAttribLocation(shaderProgram, "aUvs");
         gl.enableVertexAttribArray(shaderProgram.vertexUvAttribute)
 
-        shaderProgram.uTimeUniform = gl.getUniformLocation(shaderProgram, "uTime")
-        shaderProgram.uVoxelDimUniform = gl.getUniformLocation(shaderProgram, "uVoxelDim")
-        shaderProgram.uRezUniform = gl.getUniformLocation(shaderProgram, "uRez")
+        // shaderProgram.uTimeUniform = gl.getUniformLocation(shaderProgram, "uTime")
+        // shaderProgram.uTextureUniform = gl.getUniformLocation(shaderProgram, "uTexture")
+
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mMatrixUniform = gl.getUniformLocation(shaderProgram, "uMMatrix");
+        shaderProgram.vMatrixUniform = gl.getUniformLocation(shaderProgram, "uVMatrix");
 
         this.vertShader = vertShader
         this.fragSahder = fragSahder
@@ -73,12 +82,22 @@ class Plane {
 
     setMatrixUniforms() {
         this.gl.uniformMatrix4fv(this.program.pMatrixUniform, false, this.scene.camera.getProjectionMatrix());
-        this.gl.uniformMatrix4fv(this.program.vMatrixUniform, false, this.scene.camera.getViewMatrix());
-        this.gl.uniformMatrix4fv(this.program.mMatrixUniform, false, mvMatrix);
+        this.gl.uniformMatrix4fv(this.program.vMatrixUniform, false, this.scene.camera.getViewMatrix());        
+        this.gl.uniformMatrix4fv(this.program.mMatrixUniform, false, this.matrix);
+    }
+
+    updatePositionMatrix() {
+        let gl = this.gl
+        mat4.identity(this.matrix)
+        this.quaternion = quat.create()
+        quat.rotateX(this.quaternion, this.quaternion, this.rotation[0])
+        quat.rotateY(this.quaternion, this.quaternion, this.rotation[1])
+        quat.rotateZ(this.quaternion, this.quaternion, this.rotation[2])
+        mat4.fromRotationTranslationScale(this.matrix, this.quaternion, this.position, this.scale)
     }
 
     // Webgl 2 only
-    initVao(){
+    initVao() {
 
         let gl = this.gl
 
@@ -89,7 +108,7 @@ class Plane {
         gl.enableVertexAttribArray(this.program.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexPositionBuffer)
         gl.vertexAttribPointer(this.program.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0)
-        
+
         gl.enableVertexAttribArray(this.program.vertexUvAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.uvsBuffer)
         gl.vertexAttribPointer(this.program.vertexUvAttribute, 2, gl.FLOAT, false, 0, 0)
@@ -129,22 +148,26 @@ class Plane {
     }
 
     render() {
-        
+
         let gl = this.gl
         let time = this.scene.time
 
         gl.useProgram(this.program)
 
-        gl.bindVertexArray(this.vao)        
-        
+        gl.bindVertexArray(this.vao)
+
+        this.updatePositionMatrix()
+        this.setMatrixUniforms()
         this.applyState()
 
         gl.uniform1f(this.program.uTimeUniform, time)
-        gl.uniform1f(this.program.uVoxelDimUniform, this.voxelDim)
-        gl.uniform2fv(this.program.uRezUniform, [this.scene.voxelFBO.width, this.scene.voxelFBO.heigth])
+
+        // gl.activeTexture(gl.TEXTURE0)        
+        // gl.bindTexture(gl.TEXTURE_2D, this.scene.voxelFBO.getTexture())
+        // gl.uniform1i(this.program.uTextureUniform, 0)
 
         gl.drawElements(gl.TRIANGLES, GEOM.indices.length, gl.UNSIGNED_SHORT, 0)
-        
+
         gl.bindVertexArray(null)
 
     }
